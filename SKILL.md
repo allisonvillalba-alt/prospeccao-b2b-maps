@@ -1,6 +1,6 @@
 ---
 name: prospeccao-b2b-maps
-description: Prospecção B2B ativa para empresas brasileiras a partir do Google Maps e de dados abertos de CNPJ. Encontra empresas de um nicho numa cidade, qualifica pelo site, confirma o CNPJ cruzando o endereço com a Receita Federal, confere duplicados no CRM e cadastra os leads aprovados (Agendor pela API, ou CSV para qualquer outro CRM). Esta skill deve ser usada quando o usuário pedir para prospectar, pesquisar ou levantar empresas de um nicho numa cidade, qualificar ou enriquecer uma lista de leads com CNPJ, ou subir leads no CRM ("pega 10 empresas de engenharia em Campinas", "qualifica esses sites", "sobe no CRM").
+description: Prospecção e vendas B2B para empresas brasileiras. Encontra empresas de um nicho numa cidade pelo Google Maps, qualifica pelo site, confirma o CNPJ cruzando o endereço com a Receita Federal, levanta sócios, porte e regime, confere duplicados no CRM e cadastra os leads aprovados (Agendor pela API, ou CSV para qualquer outro CRM). Esta skill deve ser usada sempre que o assunto for prospecção ou vendas, como prospectar, levantar ou pesquisar empresas e leads, montar lista de clientes em potencial, qualificar ou enriquecer leads com CNPJ, pesquisar uma empresa antes de abordar, preparar a rotina de SDR, alimentar o pipeline ou funil de vendas, ou subir negócios no CRM ("pega 10 empresas de engenharia em Campinas", "quem é o dono dessa empresa", "qualifica esses sites", "sobe no CRM", "preciso de leads").
 ---
 
 # Prospecção B2B pelo Maps
@@ -15,6 +15,19 @@ valor, funil e limite diário são perguntados a quem for usar, no primeiro uso,
 em `~/.prospeccao/config.json`, fora da pasta da skill.
 
 ## When to Use This Skill
+
+Ela é acionada sempre que o assunto for **prospecção ou vendas**. Nem todo pedido de vendas
+precisa do fluxo inteiro: use só a parte que resolve o pedido.
+
+| Pedido | O que usar |
+|---|---|
+| Achar empresas novas para prospectar | Fluxo completo (Instructions 1 a 8) |
+| Pesquisar uma empresa antes de uma reunião ou abordagem | Site + `cnpj_tools.py` (etapas 3 e 4) |
+| Descobrir CNPJ, sócios, porte ou regime de uma empresa | `cnpj_tools.py whois` e `receita` |
+| Saber se uma empresa já está no CRM | `agendor.py duplicados` ou `exportar_csv.py --base` |
+| Qualificar ou limpar uma lista que o usuário já tem | Etapas 3 a 6, sem busca no Maps |
+| Vendas sem relação com lista de empresas (script de ligação, objeção, proposta, preço) | Esta skill não resolve. Siga sem ela, ou use outra skill de vendas instalada. |
+
 
 - Montar a lista diária de prospecção de um nicho numa cidade
 - Qualificar uma lista de sites ou empresas (site no ar, atividade coerente, CNPJ confirmado)

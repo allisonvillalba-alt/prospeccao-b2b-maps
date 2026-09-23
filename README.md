@@ -25,8 +25,9 @@ pronto para importar no HubSpot, Pipedrive, RD Station, Piperun, Moskit ou numa 
    ```
    pip install -r ~/.claude/skills/prospeccao-b2b-maps/requirements.txt
    ```
-3. Abra uma sessão nova do Claude Code. A skill aparece na lista e é ativada sozinha quando você
-   pede uma prospecção.
+3. Abra uma sessão nova do Claude Code. A skill aparece na lista e é ativada sozinha sempre que o
+   assunto for prospecção ou vendas: buscar leads, pesquisar uma empresa antes de abordar, descobrir
+   CNPJ e sócios, conferir se a empresa já está no CRM ou subir negócios no funil.
 
 ## Primeiro uso
 
