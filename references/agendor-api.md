@@ -15,8 +15,8 @@ O token é gerado em Menu → Integrações → API e tem as mesmas permissões 
 | DELETE com token de vendedor | 401. O token comum não apaga, e isso é uma proteção útil. Registro criado por engano precisa ser apagado na tela. |
 | 503 esporádico | Acontece. A gravação pode ou não ter sido feita. Confira pelo CNPJ antes de repetir o POST. |
 | Tarefas do negócio (`/deals/{id}/tasks`) | Exige filtro de data (`createdDateGt` e similares). |
-| Campos personalizados do negócio | Só aparecem com `?withCustomFields=true` no GET. Vêm em `customFields`, pela chave do campo (ex.: `origem_do_lead`). Campo de lista devolve `[{"id": 76460, "value": "Prospecção Ativa"}]`. |
-| Gravar campo personalizado | `{"customFields": {"origem_do_lead": [76460]}}`, com os ids das opções. Funciona no PUT; o script também manda no POST e confere depois, completando com PUT se não tiver gravado. |
+| Campos personalizados do negócio | Só aparecem com `?withCustomFields=true` no GET. Vêm em `customFields`, pela chave do campo (ex.: `origem_do_lead`). Campo de lista devolve `[{"id": 1001, "value": "Prospecção Ativa"}]`. |
+| Gravar campo personalizado | `{"customFields": {"origem_do_lead": [1001]}}`, com os ids das opções. Funciona no PUT; o script também manda no POST e confere depois, completando com PUT se não tiver gravado. |
 | Lista de campos e opções | Não há endpoint (`/custom_fields` dá 404). As opções saem dos negócios já existentes: `agendor.py campos-negocio`. |
 | Duas "origens" | A empresa tem `leadOrigin` (origem da empresa). O negócio pode ter um campo personalizado próprio de origem. São campos diferentes e os dois aparecem na tela. |
 
