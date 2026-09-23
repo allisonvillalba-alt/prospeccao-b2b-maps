@@ -99,7 +99,11 @@ de no máximo 4 perguntas.
 9. Se for **Agendor**: salve o token (Menu → Integrações → API) em `~/.secrets/agendor.txt` e rode `python scripts/agendor.py quem-sou-eu` e `python scripts/agendor.py funis`.
 10. **Em qual funil do Agendor os leads prospectados vão entrar?** Mostre a lista de funis da conta pelo nome e deixe o usuário escolher. Não escolha por ele, mesmo que exista um funil chamado "Prospecção": em conta com equipe, cada vendedor pode ter o seu.
 11. **Em qual etapa desse funil?** Mostre só as etapas do funil escolhido. Normalmente é a primeira, mas confirme.
-12. Quem fica como responsável (normalmente ele mesmo), qual origem do lead usar, se a conta usar (escrita exatamente como está no Agendor), e se a conta é compartilhada com uma equipe.
+12. Quem fica como responsável (normalmente ele mesmo), qual origem da **empresa** usar, se a conta usar (escrita exatamente como está no Agendor), e se a conta é compartilhada com uma equipe.
+12a. **Origem do lead no negócio.** Muitas contas têm um campo personalizado de origem no próprio negócio (ex.: "Origem do lead": Prospecção Ativa, Indicação, Marketing), separado da origem da empresa. Rode `python scripts/agendor.py campos-negocio`, mostre os campos e as opções e pergunte:
+   - qual campo guarda a origem do negócio (se nenhum, deixe `origem_negocio.campo` vazio)
+   - qual opção usar por padrão
+   - se a origem é **sempre a mesma** (`por_remessa: "fixa"`) ou se deve ser **perguntada a cada remessa** (`por_remessa: "perguntar"`, o padrão)
 13. Se for **outro CRM**: em que pasta salvar o CSV, e em qual funil ou lista os leads vão entrar quando ele importar (vai no nome do arquivo e na explicação de importação). Se puder, peça uma exportação atual do CRM, para deduplicar.
 
 **Bloco 4: como o negócio é criado**
@@ -159,14 +163,18 @@ fora da regra. Nada é cadastrado nesta etapa.
 ### 7. Cadastrar
 Só depois do ok explícito do usuário.
 
-**Agendor:** a primeira linha da simulação mostra o destino (`DESTINO: funil "X" → etapa "Y"`).
-Pergunte ao usuário, **a cada lote**, se os leads devem entrar nesse funil. Se ele quiser outro
+**Agendor:** as primeiras linhas da simulação mostram o destino (`DESTINO: funil "X" → etapa "Y"`)
+e a origem (`ORIGEM DO NEGÓCIO: ...`). Pergunte ao usuário, **a cada lote**, se os leads devem
+entrar nesse funil. Se `origem_negocio.por_remessa` for `"perguntar"`, pergunte também qual é a
+origem desta remessa, mostrando as opções de `campos-negocio`, e use `--origem ID` quando for
+diferente do padrão. Se for `"fixa"`, só mostre a origem no resumo, sem perguntar. Se ele quiser outro
 só para este lote, rode `funis`, deixe ele escolher e use `--funil` e `--etapa`. Se quiser trocar
 de vez, atualize o config.
 ```
 python scripts/agendor.py criar lote.json                                  # simulação: confira destino e dados
 python scripts/agendor.py criar lote.json --confirmar                      # grava no funil do config
 python scripts/agendor.py criar lote.json --funil ID --etapa ID --confirmar  # outro funil só neste lote
+python scripts/agendor.py criar lote.json --origem ID --confirmar            # outra origem só nesta remessa
 ```
 Se aparecer `FUNIL_INVALIDO` ou `ETAPA_INVALIDA`, o funil foi apagado ou renomeado na conta:
 pergunte de novo ao usuário e atualize o config.

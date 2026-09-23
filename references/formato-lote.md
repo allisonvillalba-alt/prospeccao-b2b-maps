@@ -38,7 +38,7 @@ endereço da Receita, origem do lead (`crm.agendor.origem_lead`), responsável (
 descrição no mesmo formato que o Agendor gera quando o CNPJ é digitado na tela (abertura, porte,
 situação, sócios, CNAE).
 
-**Negócio:** título (modelo `negocio.titulo`, com as variáveis `{nome}`, `{razao_social}`,
+**Negócio:** origem do lead (campo personalizado de `crm.agendor.origem_negocio`, conferida depois de criar), título (modelo `negocio.titulo`, com as variáveis `{nome}`, `{razao_social}`,
 `{cidade}` e `{socio}`), valor (`negocio.valor`, opcional), funil, etapa, responsável e `descricao_negocio`.
 
 **Pessoas** (se `pessoas.criar_socios`): cada sócio pessoa física, ligado à empresa, com o cargo da Receita. O tipo

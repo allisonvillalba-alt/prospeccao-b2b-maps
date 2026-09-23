@@ -7,7 +7,11 @@
   },
   "perfil_cliente": {
     "nichos": [],
-    "portes_aceitos": ["MICRO EMPRESA", "EMPRESA DE PEQUENO PORTE", "DEMAIS"],
+    "portes_aceitos": [
+      "MICRO EMPRESA",
+      "EMPRESA DE PEQUENO PORTE",
+      "DEMAIS"
+    ],
     "aceita_simples": true,
     "aceita_mei": false,
     "aceita_empresario_individual": true,
@@ -26,6 +30,12 @@
       "etapa_id": null,
       "responsavel_id": null,
       "origem_lead": null,
+      "origem_negocio": {
+        "campo": null,
+        "opcao_id": null,
+        "opcao": null,
+        "por_remessa": "perguntar"
+      },
       "conta_compartilhada": true
     },
     "csv": {

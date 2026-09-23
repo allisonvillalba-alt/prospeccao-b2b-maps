@@ -4,6 +4,7 @@
 Uso:
   python agendor.py quem-sou-eu
   python agendor.py funis
+  python agendor.py campos-negocio                  # campos personalizados do negócio e opções (ex.: origem)
   python agendor.py duplicados <lote.json>
   python agendor.py criar <lote.json>               # simulação: só mostra o que faria
   python agendor.py criar <lote.json> --confirmar   # grava de verdade
@@ -11,13 +12,16 @@ Uso:
                                                     # outro funil só neste lote
   python agendor.py criar <lote.json> --liberar "Nome A;Nome B" [--confirmar]
                                                     # libera falso positivo de nome parecido
+  python agendor.py criar <lote.json> --origem ID [--confirmar]
+                                                    # outra origem do negócio só nesta remessa
 
 O funil e a etapa de destino aparecem por nome no topo da saída, nos dois modos,
 para o usuário confirmar para onde os leads vão antes de gravar.
 
 Regras embutidas (valem para qualquer usuário):
   - Só faz leitura e criação. Não existe caminho no código para editar ou apagar
-    registro que já estava no CRM.
+    registro que já estava no CRM. A única escrita além do POST é completar a origem
+    no negócio que o próprio script acabou de criar, se ela não tiver sido gravada.
   - `criar` sem --confirmar nunca grava.
   - Empresa que já existe no CRM bloqueia o lote inteiro. Com --pular-duplicados,
     ela é ignorada e o resto segue. CNPJ igual nunca é liberado; "nome parecido"
@@ -216,15 +220,63 @@ def corpo_empresa(e, cfg):
     })
 
 
+def origem_negocio(cfg):
+    """Campo personalizado de origem do negócio (lista de opções), se a conta usar."""
+    o = cfg["crm"]["agendor"].get("origem_negocio") or {}
+    return (o["campo"], o["opcao_id"], o.get("opcao")) if o.get("campo") and o.get("opcao_id") else None
+
+
 def corpo_negocio(e, cfg):
-    return limpar({
+    corpo = {
         "title": conf.titulo(cfg, e),
         "description": e.get("descricao_negocio"),
         "value": cfg["negocio"].get("valor"),
         "funnel": cfg["crm"]["agendor"]["funil_id"],
         "dealStage": cfg["crm"]["agendor"]["etapa_id"],
         "ownerUser": cfg["crm"]["agendor"]["responsavel_id"],
-    })
+    }
+    origem = origem_negocio(cfg)
+    if origem:
+        corpo["customFields"] = {origem[0]: [origem[1]]}
+    return limpar(corpo)
+
+
+def garantir_origem(neg_id, cfg):
+    """Confere se a origem ficou gravada no negócio e, se não ficou, preenche.
+    Só roda em negócio que a própria skill acabou de criar."""
+    origem = origem_negocio(cfg)
+    if not origem:
+        return None
+    campo, opcao_id, _ = origem
+    d = get(f"/deals/{neg_id}", withCustomFields="true")["data"]
+    if not any(v.get("id") == opcao_id for v in (d.get("customFields") or {}).get(campo) or []):
+        r = _pedido("PUT", f"/deals/{neg_id}", json={"customFields": {campo: [opcao_id]}})
+        if r.status_code >= 300:
+            raise RuntimeError(f"origem do negócio {neg_id} -> {r.status_code}: {r.text[:300]}")
+        d = get(f"/deals/{neg_id}", withCustomFields="true")["data"]
+    return [v.get("value") for v in (d.get("customFields") or {}).get(campo) or []]
+
+
+def ler_campos_negocio():
+    """Campos personalizados de negócio e as opções já usadas na conta.
+    A API não tem endpoint de campos: as opções vêm dos negócios existentes."""
+    campos = {}
+    for d in paginar("/deals", withCustomFields="true"):
+        for chave, valor in (d.get("customFields") or {}).items():
+            opcoes = campos.setdefault(chave, {})
+            for v in valor if isinstance(valor, list) else []:
+                if isinstance(v, dict) and "id" in v:
+                    opcoes[v["id"]] = v.get("value")
+    return campos
+
+
+def campos_negocio():
+    for chave, opcoes in ler_campos_negocio().items():
+        print(chave)
+        for oid, nome in sorted(opcoes.items(), key=lambda x: str(x[1])):
+            print(f"    opção {oid}  {nome}")
+        if not opcoes:
+            print("    (texto livre, data ou ainda sem uso)")
 
 
 def post(caminho, corpo, conferir_cnpj=None):
@@ -256,7 +308,8 @@ def destino(cfg):
     return funil["name"], etapa["name"]
 
 
-def criar(caminho, confirmar=False, pular_duplicados=False, funil=None, etapa=None, liberar=None):
+def criar(caminho, confirmar=False, pular_duplicados=False, funil=None, etapa=None, liberar=None,
+          origem=None):
     cfg = conf.carregar()
     if cfg["crm"]["tipo"] != "agendor":
         sys.exit("O CRM configurado não é o Agendor. Use exportar_csv.py.")
@@ -264,8 +317,22 @@ def criar(caminho, confirmar=False, pular_duplicados=False, funil=None, etapa=No
         sys.exit("Para trocar o destino deste lote, informe --funil e --etapa juntos.")
     if funil is not None:
         cfg["crm"]["agendor"] = {**cfg["crm"]["agendor"], "funil_id": funil, "etapa_id": etapa}
+    if origem is not None:
+        base = cfg["crm"]["agendor"].get("origem_negocio") or {}
+        if not base.get("campo"):
+            sys.exit("--origem precisa do campo de origem configurado (crm.agendor.origem_negocio.campo).")
+        opcoes = ler_campos_negocio().get(base["campo"], {})
+        if origem not in opcoes:
+            lista = "; ".join(f"{i} = {n}" for i, n in opcoes.items()) or "nenhuma encontrada"
+            sys.exit(f'ORIGEM_INVALIDA: a opção {origem} não existe no campo "{base["campo"]}". '
+                     f"Opções da conta: {lista}")
+        cfg["crm"]["agendor"]["origem_negocio"] = {"campo": base["campo"], "opcao_id": origem,
+                                                   "opcao": opcoes[origem]}
     nome_funil, nome_etapa = destino(cfg)
-    print(f'DESTINO: funil "{nome_funil}" → etapa "{nome_etapa}"\n')
+    print(f'DESTINO: funil "{nome_funil}" → etapa "{nome_etapa}"')
+    origem = origem_negocio(cfg)
+    print(f'ORIGEM DO NEGÓCIO: {origem[2] or origem[1]}\n' if origem
+          else "ORIGEM DO NEGÓCIO: não configurada (os negócios vão sem origem)\n")
     empresas = carregar_lote(caminho)
 
     achados, _ = achar_duplicados(empresas)
@@ -314,6 +381,9 @@ def criar(caminho, confirmar=False, pular_duplicados=False, funil=None, etapa=No
             item["org_id"] = org["id"]
             neg = post(f'/organizations/{org["id"]}/deals', corpo_negocio(e, cfg))
             item.update(negocio_id=neg["id"], titulo=neg["title"], link=neg.get("_webUrl"))
+            origem = garantir_origem(neg["id"], cfg)
+            if origem is not None:
+                item["origem"] = origem
             if cfg.get("pessoas", {}).get("criar_socios"):
                 for s in e["receita"]["socios_pessoa_fisica"]:
                     p = post("/people", limpar({"name": titulo_caso(s["nome"]), "organization": org["id"],
@@ -348,6 +418,8 @@ def main(argv):
         quem_sou_eu()
     elif cmd == "funis":
         funis()
+    elif cmd == "campos-negocio":
+        campos_negocio()
     elif cmd == "duplicados" and len(argv) > 1:
         duplicados(argv[1])
     elif cmd == "criar" and len(argv) > 1:
@@ -367,7 +439,7 @@ def main(argv):
 
         liberar = [n.strip() for n in (opcao("--liberar") or "").split(";") if n.strip()]
         return criar(argv[1], "--confirmar" in argv, "--pular-duplicados" in argv,
-                     numero("--funil"), numero("--etapa"), liberar)
+                     numero("--funil"), numero("--etapa"), liberar, numero("--origem"))
     else:
         print(__doc__)
         return 1

@@ -39,6 +39,7 @@ responde do seu jeito.
 - Se o site é obrigatório e se o endereço do CNPJ precisa bater com o do Maps
 - Qual CRM você usa
 - **Em qual funil e em qual etapa do Agendor os leads prospectados vão entrar.** O Claude lista os funis da sua conta pelo nome para você escolher, e confirma o destino de novo a cada lote antes de gravar.
+- **Origem do lead** que vai em cada negócio (ex.: Prospecção Ativa). Você escolhe se ela é sempre a mesma ou se o Claude pergunta a cada remessa.
 - Padrão do título do negócio, valor, estilo da descrição e se os sócios viram contatos
 - **Quantos negócios novos por dia, no máximo**
 
