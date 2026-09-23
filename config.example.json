@@ -1,0 +1,43 @@
+{
+  "versao": 1,
+  "vendedor": {
+    "nome": "",
+    "empresa": "",
+    "o_que_vende": ""
+  },
+  "perfil_cliente": {
+    "nichos": [],
+    "portes_aceitos": ["MICRO EMPRESA", "EMPRESA DE PEQUENO PORTE", "DEMAIS"],
+    "aceita_simples": true,
+    "aceita_mei": false,
+    "aceita_empresario_individual": true,
+    "excluir": [],
+    "observacoes": ""
+  },
+  "qualificacao": {
+    "exige_site": true,
+    "triangular_endereco": true
+  },
+  "limite_diario": null,
+  "crm": {
+    "tipo": "agendor",
+    "agendor": {
+      "funil_id": null,
+      "etapa_id": null,
+      "responsavel_id": null,
+      "origem_lead": null,
+      "conta_compartilhada": true
+    },
+    "csv": {
+      "pasta": ""
+    }
+  },
+  "negocio": {
+    "titulo": null,
+    "valor": null,
+    "estilo_descricao": ""
+  },
+  "pessoas": {
+    "criar_socios": true
+  }
+}
