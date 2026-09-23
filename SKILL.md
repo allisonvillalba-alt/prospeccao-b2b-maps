@@ -30,7 +30,7 @@ em `~/.prospeccao/config.json`, fora da pasta da skill.
 4. **Confirma o CNPJ**: pelo rodapé do site, pelo whois do registro.br ou pela web, e cruza o endereço da Receita com o do Maps
 5. **Aplica o perfil**: porte, regime tributário, MEI e exclusões definidas pelo usuário
 6. **Deduplica**: compara CNPJ e nome com o CRM e mostra quem é o dono de cada empresa que já existe
-7. **Cadastra com aprovação**: empresa, negócio e sócios no Agendor, ou um CSV pronto para importar em outro CRM, sempre dentro do limite diário
+7. **Cadastra com aprovação**: empresa, negócio e sócios no funil e na etapa que o usuário escolheu no Agendor, ou um CSV pronto para importar em outro CRM, sempre dentro do limite diário
 
 ## How to Use
 
@@ -76,19 +76,18 @@ de no máximo 4 perguntas.
 
 **Bloco 3: CRM**
 8. Qual CRM você usa? Agendor (integração pela API) ou outro (a skill gera CSV para importar)?
-9. Se for **Agendor**: salve o token (Menu → Integrações → API) em `~/.secrets/agendor.txt`, rode `python scripts/agendor.py quem-sou-eu` e `python scripts/agendor.py funis`, e mostre a lista para o usuário escolher:
-   - o funil e a etapa onde o negócio entra
-   - o responsável (normalmente ele mesmo)
-   - a origem do lead, se a conta usar (escrita exatamente como está no Agendor)
-   - se a conta é compartilhada com uma equipe
-10. Se for **outro CRM**: em que pasta salvar o CSV? Se puder, peça uma exportação atual do CRM, para deduplicar.
+9. Se for **Agendor**: salve o token (Menu → Integrações → API) em `~/.secrets/agendor.txt` e rode `python scripts/agendor.py quem-sou-eu` e `python scripts/agendor.py funis`.
+10. **Em qual funil do Agendor os leads prospectados vão entrar?** Mostre a lista de funis da conta pelo nome e deixe o usuário escolher. Não escolha por ele, mesmo que exista um funil chamado "Prospecção": em conta com equipe, cada vendedor pode ter o seu.
+11. **Em qual etapa desse funil?** Mostre só as etapas do funil escolhido. Normalmente é a primeira, mas confirme.
+12. Quem fica como responsável (normalmente ele mesmo), qual origem do lead usar, se a conta usar (escrita exatamente como está no Agendor), e se a conta é compartilhada com uma equipe.
+13. Se for **outro CRM**: em que pasta salvar o CSV, e em qual funil ou lista os leads vão entrar quando ele importar (vai no nome do arquivo e na explicação de importação). Se puder, peça uma exportação atual do CRM, para deduplicar.
 
 **Bloco 4: como o negócio é criado**
-11. Qual é o padrão do título do negócio? Ofereça as variáveis `{nome}`, `{razao_social}`, `{cidade}` e `{socio}` (ex.: `Reunião | {nome}`).
-12. O negócio tem valor padrão? Qual? (pode ficar sem valor)
-13. Como deve ser a descrição do negócio? Peça um exemplo real que ele já escreveu.
-14. Os sócios devem ser cadastrados como Pessoas ligadas à empresa?
-15. **Quantos negócios novos por dia, no máximo?** Não sugira um número antes de ele responder.
+14. Qual é o padrão do título do negócio? Ofereça as variáveis `{nome}`, `{razao_social}`, `{cidade}` e `{socio}` (ex.: `Reunião | {nome}`).
+15. O negócio tem valor padrão? Qual? (pode ficar sem valor)
+16. Como deve ser a descrição do negócio? Peça um exemplo real que ele já escreveu.
+17. Os sócios devem ser cadastrados como Pessoas ligadas à empresa?
+18. **Quantos negócios novos por dia, no máximo?** Não sugira um número antes de ele responder.
 
 Mostre o resumo das respostas, peça confirmação e salve em `~/.prospeccao/config.json`,
 seguindo `config.example.json`. Para mudar alguma coisa depois, é só o usuário pedir, e você
@@ -138,11 +137,17 @@ fora da regra. Nada é cadastrado nesta etapa.
 ### 7. Cadastrar
 Só depois do ok explícito do usuário.
 
-**Agendor:**
+**Agendor:** a primeira linha da simulação mostra o destino (`DESTINO: funil "X" → etapa "Y"`).
+Pergunte ao usuário, **a cada lote**, se os leads devem entrar nesse funil. Se ele quiser outro
+só para este lote, rode `funis`, deixe ele escolher e use `--funil` e `--etapa`. Se quiser trocar
+de vez, atualize o config.
 ```
-python scripts/agendor.py criar lote.json              # simulação: confira a saída
-python scripts/agendor.py criar lote.json --confirmar  # grava
+python scripts/agendor.py criar lote.json                                  # simulação: confira destino e dados
+python scripts/agendor.py criar lote.json --confirmar                      # grava no funil do config
+python scripts/agendor.py criar lote.json --funil ID --etapa ID --confirmar  # outro funil só neste lote
 ```
+Se aparecer `FUNIL_INVALIDO` ou `ETAPA_INVALIDA`, o funil foi apagado ou renomeado na conta:
+pergunte de novo ao usuário e atualize o config.
 Na primeira vez numa conta, grave **uma** empresa e peça para o usuário conferir na tela (campos,
 etapa e automações da conta) antes de gravar o resto.
 

@@ -7,6 +7,11 @@ Uso:
   python agendor.py duplicados <lote.json>
   python agendor.py criar <lote.json>               # simulação: só mostra o que faria
   python agendor.py criar <lote.json> --confirmar   # grava de verdade
+  python agendor.py criar <lote.json> --funil ID --etapa ID [--confirmar]
+                                                    # outro funil só neste lote
+
+O funil e a etapa de destino aparecem por nome no topo da saída, nos dois modos,
+para o usuário confirmar para onde os leads vão antes de gravar.
 
 Regras embutidas (valem para qualquer usuário):
   - Só faz leitura e criação. Não existe caminho no código para editar ou apagar
@@ -208,10 +213,31 @@ def post(caminho, corpo, conferir_cnpj=None):
     return r.json()["data"]
 
 
-def criar(caminho, confirmar=False, pular_duplicados=False):
+def destino(cfg):
+    """Confere na conta se o funil e a etapa existem e se a etapa é desse funil."""
+    ag = cfg["crm"]["agendor"]
+    funis_conta = get("/funnels")["data"]
+    funil = next((f for f in funis_conta if f["id"] == ag["funil_id"]), None)
+    if funil is None:
+        sys.exit(f'FUNIL_INVALIDO: o funil {ag["funil_id"]} não existe nesta conta. '
+                 "Rode `funis` e pergunte ao usuário em qual funil os leads devem entrar.")
+    etapa = next((e for e in funil.get("dealStages", []) if e["id"] == ag["etapa_id"]), None)
+    if etapa is None:
+        sys.exit(f'ETAPA_INVALIDA: a etapa {ag["etapa_id"]} não pertence ao funil "{funil["name"]}". '
+                 "Pergunte ao usuário em qual etapa desse funil os leads devem entrar.")
+    return funil["name"], etapa["name"]
+
+
+def criar(caminho, confirmar=False, pular_duplicados=False, funil=None, etapa=None):
     cfg = conf.carregar()
     if cfg["crm"]["tipo"] != "agendor":
         sys.exit("O CRM configurado não é o Agendor. Use exportar_csv.py.")
+    if (funil is None) != (etapa is None):
+        sys.exit("Para trocar o destino deste lote, informe --funil e --etapa juntos.")
+    if funil is not None:
+        cfg["crm"]["agendor"] = {**cfg["crm"]["agendor"], "funil_id": funil, "etapa_id": etapa}
+    nome_funil, nome_etapa = destino(cfg)
+    print(f'DESTINO: funil "{nome_funil}" → etapa "{nome_etapa}"\n')
     empresas = carregar_lote(caminho)
 
     achados, _ = achar_duplicados(empresas)
@@ -271,7 +297,10 @@ def main(argv):
     elif cmd == "duplicados" and len(argv) > 1:
         duplicados(argv[1])
     elif cmd == "criar" and len(argv) > 1:
-        return criar(argv[1], "--confirmar" in argv, "--pular-duplicados" in argv)
+        def opcao(nome):
+            return int(argv[argv.index(nome) + 1]) if nome in argv else None
+        return criar(argv[1], "--confirmar" in argv, "--pular-duplicados" in argv,
+                     opcao("--funil"), opcao("--etapa"))
     else:
         print(__doc__)
         return 1

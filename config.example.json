@@ -29,7 +29,8 @@
       "conta_compartilhada": true
     },
     "csv": {
-      "pasta": ""
+      "pasta": "",
+      "destino": ""
     }
   },
   "negocio": {

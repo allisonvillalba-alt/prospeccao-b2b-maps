@@ -17,7 +17,7 @@ pronto para importar no HubSpot, Pipedrive, RD Station, Piperun, Moskit ou numa 
 
 ## Instalação
 
-1. Baixe a skill (botão **Code → Download ZIP** aqui no GitHub, ou `git clone https://github.com/allisonvillalba-alt/prospeccao-b2b-maps.git`)
+1. Baixe a skill (botão **Code → Download ZIP** no GitHub, ou `git clone https://github.com/allisonvillalba-alt/prospeccao-b2b-maps.git`)
    e coloque a pasta `prospeccao-b2b-maps` dentro da pasta de skills do Claude:
    - Windows: `C:\Users\<seu-usuario>\.claude\skills\`
    - macOS / Linux: `~/.claude/skills/`
@@ -36,7 +36,8 @@ responde do seu jeito.
 - O que você vende e para quem
 - Nichos, portes aceitos, se empresa do Simples, MEI ou empresário individual entram, e quem nunca deve entrar
 - Se o site é obrigatório e se o endereço do CNPJ precisa bater com o do Maps
-- Qual CRM você usa. No Agendor, ele lista seus funis e etapas para você escolher.
+- Qual CRM você usa
+- **Em qual funil e em qual etapa do Agendor os leads prospectados vão entrar.** O Claude lista os funis da sua conta pelo nome para você escolher, e confirma o destino de novo a cada lote antes de gravar.
 - Padrão do título do negócio, valor, estilo da descrição e se os sócios viram contatos
 - **Quantos negócios novos por dia, no máximo**
 

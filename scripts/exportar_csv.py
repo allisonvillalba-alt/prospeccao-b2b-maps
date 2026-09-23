@@ -106,7 +106,11 @@ def main(argv):
 
     pasta = Path(cfg["crm"]["csv"]["pasta"]).expanduser()
     pasta.mkdir(parents=True, exist_ok=True)
-    saida = pasta / f"prospeccao_{dt.datetime.now():%Y%m%d_%H%M}.csv"
+    destino = cfg["crm"]["csv"].get("destino") or ""
+    sufixo = "".join(c if c.isalnum() else "-" for c in destino).strip("-").lower()
+    saida = pasta / f"prospeccao{'_' + sufixo if sufixo else ''}_{dt.datetime.now():%Y%m%d_%H%M}.csv"
+    if destino:
+        print(f'DESTINO: importar no funil/lista "{destino}" do CRM')
     with open(saida, "w", encoding="utf-8-sig", newline="") as f:
         w = csv.DictWriter(f, fieldnames=COLUNAS, delimiter=";")
         w.writeheader()
