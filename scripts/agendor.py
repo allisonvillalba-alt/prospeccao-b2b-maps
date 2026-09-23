@@ -9,6 +9,8 @@ Uso:
   python agendor.py criar <lote.json> --confirmar   # grava de verdade
   python agendor.py criar <lote.json> --funil ID --etapa ID [--confirmar]
                                                     # outro funil só neste lote
+  python agendor.py criar <lote.json> --liberar "Nome A;Nome B" [--confirmar]
+                                                    # libera falso positivo de nome parecido
 
 O funil e a etapa de destino aparecem por nome no topo da saída, nos dois modos,
 para o usuário confirmar para onde os leads vão antes de gravar.
@@ -17,8 +19,11 @@ Regras embutidas (valem para qualquer usuário):
   - Só faz leitura e criação. Não existe caminho no código para editar ou apagar
     registro que já estava no CRM.
   - `criar` sem --confirmar nunca grava.
-  - Empresa que já existe no CRM (mesmo CNPJ ou nome parecido) bloqueia o lote
-    inteiro. Com --pular-duplicados, ela é ignorada e o resto segue.
+  - Empresa que já existe no CRM bloqueia o lote inteiro. Com --pular-duplicados,
+    ela é ignorada e o resto segue. CNPJ igual nunca é liberado; "nome parecido"
+    pode ser liberado com --liberar, depois que o usuário confirmar que é outra empresa.
+  - O registro do que foi criado é gravado a cada empresa, então nada se perde
+    se o lote parar no meio.
   - Respeita o `limite_diario` que o usuário definiu no onboarding, contando os
     negócios que ele já criou hoje no funil.
   - Se a API responder 5xx, confere se o registro foi criado antes de tentar de novo.
@@ -38,6 +43,9 @@ import requests
 import config as conf
 from util import normal
 
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
+
 BASE = "https://api.agendor.com.br/v3"
 
 
@@ -55,8 +63,13 @@ H = {"Authorization": f"Token {token()}", "Content-Type": "application/json"}
 
 
 def _pedido(metodo, caminho, **kw):
+    """Repete 429 em qualquer método (o pedido foi recusado antes de ser processado)
+    e 5xx só em GET. POST com 5xx volta para quem chamou, que confere antes de repetir."""
     for tentativa in range(4):
         r = requests.request(metodo, BASE + caminho, headers=H, timeout=40, **kw)
+        if r.status_code == 429:
+            time.sleep(int(r.headers.get("Retry-After") or 15 * (tentativa + 1)))
+            continue
         if r.status_code < 500 or metodo != "GET":
             return r
         time.sleep(15 * (tentativa + 1))
@@ -106,9 +119,14 @@ def funis():
 def carregar_lote(caminho):
     lote = json.loads(Path(caminho).read_text(encoding="utf-8"))
     empresas = lote["empresas"] if isinstance(lote, dict) else lote
+    vistos = {}
     for e in empresas:
         if "receita" not in e or "erro" in e["receita"]:
             sys.exit(f'{e.get("nome")}: falta o bloco "receita" (rode cnpj_tools.py receita).')
+        cnpj = e["receita"]["cnpj"]
+        if cnpj in vistos or e["nome"] in vistos.values():
+            sys.exit(f'LOTE_REPETIDO: "{e["nome"]}" aparece duas vezes no lote (mesmo CNPJ ou mesmo nome).')
+        vistos[cnpj] = e["nome"]
     return empresas
 
 
@@ -140,14 +158,24 @@ def duplicados(caminho):
     print(json.dumps(achados or "nenhum duplicado", ensure_ascii=False, indent=1))
 
 
+def _data_local(iso):
+    """createdAt vem em UTC ("...Z"). Sem converter, o que é criado depois das 21h
+    no horário de Brasília conta como do dia seguinte."""
+    try:
+        return dt.datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone().date()
+    except (AttributeError, ValueError):
+        return None
+
+
 def criados_hoje(cfg):
     # /funnels/{id}/deals responde 404 e os filtros de /deals são ignorados:
     # pagina tudo e filtra aqui.
-    hoje = dt.date.today().isoformat()
+    ag = cfg["crm"]["agendor"]
+    hoje = dt.date.today()
     return sum(1 for d in paginar("/deals")
-               if d["dealStage"]["funnel"]["id"] == cfg["crm"]["agendor"]["funil_id"]
-               and (d.get("author") or {}).get("id") == cfg["crm"]["agendor"]["responsavel_id"]
-               and d.get("createdAt", "").startswith(hoje))
+               if d["dealStage"]["funnel"]["id"] == ag["funil_id"]
+               and (d.get("owner") or {}).get("id") == ag["responsavel_id"]
+               and _data_local(d.get("createdAt")) == hoje)
 
 
 # ---------- escrita (só criação) ----------
@@ -228,7 +256,7 @@ def destino(cfg):
     return funil["name"], etapa["name"]
 
 
-def criar(caminho, confirmar=False, pular_duplicados=False, funil=None, etapa=None):
+def criar(caminho, confirmar=False, pular_duplicados=False, funil=None, etapa=None, liberar=None):
     cfg = conf.carregar()
     if cfg["crm"]["tipo"] != "agendor":
         sys.exit("O CRM configurado não é o Agendor. Use exportar_csv.py.")
@@ -241,10 +269,17 @@ def criar(caminho, confirmar=False, pular_duplicados=False, funil=None, etapa=No
     empresas = carregar_lote(caminho)
 
     achados, _ = achar_duplicados(empresas)
+    # "Nome parecido" confirmado pelo usuário como outra empresa pode ser liberado.
+    # CNPJ igual é a mesma empresa: nunca é liberado.
+    for nome in liberar or []:
+        if nome in achados and all(h["motivo"] == "nome parecido" for h in achados[nome]):
+            del achados[nome]
     if achados and not pular_duplicados:
         print("PAROU: estas empresas já existem no CRM. Decida com o usuário antes de seguir.")
         print(json.dumps(achados, ensure_ascii=False, indent=1))
         return 2
+    if achados:
+        print("Ignoradas por já existirem no CRM:", ", ".join(achados))
     empresas = [e for e in empresas if e["nome"] not in achados]
 
     ja_hoje = criados_hoje(cfg)
@@ -262,30 +297,49 @@ def criar(caminho, confirmar=False, pular_duplicados=False, funil=None, etapa=No
                               "pessoas": socios}, ensure_ascii=False, indent=1))
         return 0
 
-    log = []
-    for e in empresas:
-        org = post("/organizations", corpo_empresa(e, cfg), conferir_cnpj=e["receita"]["cnpj"])
-        neg = post(f'/organizations/{org["id"]}/deals', corpo_negocio(e, cfg))
-        pessoas = []
-        if cfg.get("pessoas", {}).get("criar_socios"):
-            for s in e["receita"]["socios_pessoa_fisica"]:
-                p = post("/people", limpar({"name": titulo_caso(s["nome"]), "organization": org["id"],
-                                             "role": s["cargo"], "ownerUser": cfg["crm"]["agendor"]["responsavel_id"]}))
-                pessoas.append({"id": p["id"], "nome": p["name"]})
-        item = {"empresa": e["nome"], "org_id": org["id"], "negocio_id": neg["id"],
-                "titulo": neg["title"], "pessoas": pessoas, "link": neg.get("_webUrl")}
+    arq_log = Path(caminho).with_name(f"criados_{dt.date.today():%Y%m%d}.json")
+    log = json.loads(arq_log.read_text(encoding="utf-8")) if arq_log.exists() else []
+
+    def registrar(item):
+        # Grava a cada passo: se o lote parar no meio, o registro mostra o que já existe.
         log.append(item)
+        arq_log.write_text(json.dumps(log, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    criados = 0
+    for e in empresas:
+        item = {"empresa": e["nome"], "cnpj": e["receita"]["cnpj"], "org_id": None,
+                "negocio_id": None, "pessoas": [], "status": "incompleto"}
+        try:
+            org = post("/organizations", corpo_empresa(e, cfg), conferir_cnpj=e["receita"]["cnpj"])
+            item["org_id"] = org["id"]
+            neg = post(f'/organizations/{org["id"]}/deals', corpo_negocio(e, cfg))
+            item.update(negocio_id=neg["id"], titulo=neg["title"], link=neg.get("_webUrl"))
+            if cfg.get("pessoas", {}).get("criar_socios"):
+                for s in e["receita"]["socios_pessoa_fisica"]:
+                    p = post("/people", limpar({"name": titulo_caso(s["nome"]), "organization": org["id"],
+                                                 "role": s["cargo"],
+                                                 "ownerUser": cfg["crm"]["agendor"]["responsavel_id"]}))
+                    item["pessoas"].append({"id": p["id"], "nome": p["name"]})
+            item["status"] = "ok"
+        except (RuntimeError, requests.RequestException) as erro:
+            item["erro"] = str(erro)[:400]
+            registrar(item)
+            print(f'\nPAROU em "{e["nome"]}": {item["erro"]}')
+            if item["org_id"] and not item["negocio_id"]:
+                print(f'A empresa foi criada (id {item["org_id"]}) mas o negócio não. '
+                      "Conte ao usuário antes de tentar de novo: rodar o lote outra vez vai "
+                      "acusar a empresa como duplicada.")
+            print(f"{criados} negócios criados antes do erro. Registro em {arq_log}")
+            return 3
+        registrar(item)
+        criados += 1
         print("OK", json.dumps(item, ensure_ascii=False))
 
-    arq_log = Path(caminho).with_name(f"criados_{dt.date.today():%Y%m%d}.json")
-    anteriores = json.loads(arq_log.read_text(encoding="utf-8")) if arq_log.exists() else []
-    arq_log.write_text(json.dumps(anteriores + log, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"\n{len(log)} negócios criados. Registro em {arq_log}")
+    print(f"\n{criados} negócios criados. Registro em {arq_log}")
     return 0
 
 
 def main(argv):
-    sys.stdout.reconfigure(encoding="utf-8")
     if not argv:
         print(__doc__)
         return 1
@@ -298,9 +352,22 @@ def main(argv):
         duplicados(argv[1])
     elif cmd == "criar" and len(argv) > 1:
         def opcao(nome):
-            return int(argv[argv.index(nome) + 1]) if nome in argv else None
+            if nome not in argv:
+                return None
+            i = argv.index(nome) + 1
+            if i >= len(argv) or argv[i].startswith("--"):
+                sys.exit(f"Falta o valor de {nome}.")
+            return argv[i]
+
+        def numero(nome):
+            valor = opcao(nome)
+            if valor is not None and not valor.isdigit():
+                sys.exit(f"{nome} precisa ser o id numérico (veja `funis`).")
+            return int(valor) if valor is not None else None
+
+        liberar = [n.strip() for n in (opcao("--liberar") or "").split(";") if n.strip()]
         return criar(argv[1], "--confirmar" in argv, "--pular-duplicados" in argv,
-                     opcao("--funil"), opcao("--etapa"))
+                     numero("--funil"), numero("--etapa"), liberar)
     else:
         print(__doc__)
         return 1

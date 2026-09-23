@@ -60,6 +60,9 @@ Gere o token em **Menu → Integrações → API** e salve num arquivo, fora da 
 
 Prefira não colar o token no chat.
 
+Se o menu de Integrações não mostrar a opção de token, é provável que o seu plano do Agendor não
+inclua a API. Nesse caso, escolha a opção de CSV no primeiro uso e importe pela tela do Agendor.
+
 ## Como usar
 
 ```

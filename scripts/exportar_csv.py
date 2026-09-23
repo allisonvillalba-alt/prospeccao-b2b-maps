@@ -23,6 +23,9 @@ from pathlib import Path
 import config as conf
 from util import normal
 
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
+
 COLUNAS = [
     "Título do negócio", "Valor", "Empresa", "Razão social", "CNPJ", "Site", "E-mail",
     "Telefone", "Celular", "Endereço", "Bairro", "Cidade", "UF", "CEP", "Porte", "Simples",
@@ -70,7 +73,10 @@ def ler_base(caminho):
             chave = (k or "").lower()
             if "cnpj" in chave:
                 cnpjs.add("".join(c for c in v if c.isdigit()))
-            elif any(p in chave for p in ("empresa", "organiza", "company", "nome", "razão", "razao")):
+            elif (any(p in chave for p in ("empresa", "organiza", "company", "nome", "razão", "razao"))
+                  and not any(p in chave for p in ("contato", "pessoa", "responsável", "responsavel",
+                                                   "vendedor", "dono", "owner", "usuário", "usuario"))):
+                # Coluna com nome de pessoa (contato, vendedor) não entra: geraria falso duplicado.
                 n = normal(v)
                 if len(n) >= 4:
                     nomes.add(n)
@@ -78,7 +84,6 @@ def ler_base(caminho):
 
 
 def main(argv):
-    sys.stdout.reconfigure(encoding="utf-8")
     if not argv:
         print(__doc__)
         return 1

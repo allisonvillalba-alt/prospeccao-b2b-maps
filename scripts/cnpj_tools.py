@@ -21,7 +21,9 @@ import time
 
 import requests
 
-UA = {"User-Agent": "Mozilla/5.0"}
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
+
 CNPJA_INTERVALO = 13  # segundos entre consultas, limite gratuito da CNPJá
 
 PORTE = {
@@ -43,7 +45,10 @@ def whois(dominio):
     r = requests.get(f"https://rdap.registro.br/domain/{dominio}", timeout=20)
     if r.status_code != 200:
         return {"dominio": dominio, "titular": None, "obs": f"RDAP {r.status_code}"}
-    ids = [p.get("identifier") for e in r.json().get("entities", []) for p in e.get("publicIds", [])]
+    # Só o titular (registrant). O contato técnico costuma ser a agência que fez o
+    # site, e o CNPJ dela não é o da empresa.
+    ids = [p.get("identifier") for e in r.json().get("entities", [])
+           if "registrant" in (e.get("roles") or []) for p in e.get("publicIds", [])]
     cnpjs = [so_digitos(i) for i in ids if "*" not in i and len(so_digitos(i)) == 14]
     return {
         "dominio": dominio,
@@ -64,7 +69,8 @@ def _cnpja(cnpj):
     j = r.json()
     co, a = j["company"], j["address"]
     socios = [
-        {"nome": m["person"]["name"], "cargo": m["role"]["text"]}
+        {"nome": m["person"]["name"], "cargo": m["role"]["text"],
+         "pessoa_fisica": m["person"].get("type") == "NATURAL" if m["person"].get("type") else None}
         for m in co.get("members", [])
     ]
     fones = j.get("phones") or []
@@ -129,7 +135,10 @@ def _brasilapi(cnpj):
         },
         "telefone": _telefone(tel[:2], tel[2:]) if len(tel) >= 10 else None,
         "email_receita": j.get("email") or None,
-        "socios": [{"nome": s["nome_socio"], "cargo": s["qualificacao_socio"]} for s in j.get("qsa", [])],
+        # identificador_de_socio: 1 = pessoa jurídica, 2 = pessoa física, 3 = estrangeiro
+        "socios": [{"nome": s["nome_socio"], "cargo": s["qualificacao_socio"],
+                    "pessoa_fisica": {1: False, 2: True}.get(s.get("identificador_de_socio"))}
+                   for s in j.get("qsa", [])],
         "fonte": "brasilapi",
     }
 
@@ -139,7 +148,11 @@ def receita(cnpj):
     dados = _cnpja(cnpj) or _brasilapi(cnpj)
     if dados is None:
         return {"cnpj": cnpj, "erro": "CNPJ não encontrado na CNPJá nem na BrasilAPI"}
-    dados["socios_pessoa_fisica"] = [s for s in dados["socios"] if not PJ_SOCIO.search(s["nome"].upper())]
+    # A fonte informa o tipo do sócio. O regex só decide quando ela não informa.
+    dados["socios_pessoa_fisica"] = [
+        s for s in dados["socios"]
+        if s["pessoa_fisica"] or (s["pessoa_fisica"] is None and not PJ_SOCIO.search(s["nome"].upper()))
+    ]
     return dados
 
 
@@ -166,7 +179,6 @@ def main(argv):
             if out and "erro" not in dados:
                 with open(os.path.join(out, f'{dados["cnpj"]}.json'), "w", encoding="utf-8") as f:
                     json.dump(dados, f, ensure_ascii=False, indent=1)
-    sys.stdout.reconfigure(encoding="utf-8")
     print(json.dumps(resultado, ensure_ascii=False, indent=1))
     return 0
 

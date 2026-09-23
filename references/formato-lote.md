@@ -41,8 +41,8 @@ situação, sócios, CNAE).
 **Negócio:** título (modelo `negocio.titulo`, com as variáveis `{nome}`, `{razao_social}`,
 `{cidade}` e `{socio}`), valor (`negocio.valor`, opcional), funil, etapa, responsável e `descricao_negocio`.
 
-**Pessoas** (se `pessoas.criar_socios`): cada sócio pessoa física, ligado à empresa, com o cargo da Receita. Sócio pessoa
-jurídica (holding, Ltda, S/A) não vira Pessoa.
+**Pessoas** (se `pessoas.criar_socios`): cada sócio pessoa física, ligado à empresa, com o cargo da Receita. O tipo
+do sócio vem da própria Receita (pessoa física ou jurídica). Holding e outras empresas sócias não viram Pessoa.
 
 A tarefa de primeiro contato **não** é criada pelo script. Se a conta tiver automação por etapa,
 ela cria sozinha, e o card fica vermelho até a página ser recarregada.

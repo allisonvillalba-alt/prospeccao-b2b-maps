@@ -56,9 +56,16 @@ Tenho estes sites: [lista]. Confere se estão no ar, acha o CNPJ, triangula
 e me diz quais já estão no meu CRM (exportação anexa).
 ```
 
+## Onde rodar os scripts
+
+Todos os comandos desta skill rodam **a partir da pasta da skill** (o caminho aparece como
+"Base directory for this skill" quando ela é carregada). Ex.: `cd <pasta da skill>` e depois
+`python scripts/cnpj_tools.py ...`. Os arquivos de trabalho (lote, dados da Receita, CSV) ficam
+numa pasta do usuário ou na pasta temporária da sessão, nunca dentro da skill.
+
 ## Onboarding (primeiro uso)
 
-Rode `python scripts/agendor.py` ou qualquer script. Se aparecer `CONFIG_AUSENTE` ou
+Rode `python scripts/config.py`. Ele não precisa de token. Se aparecer `CONFIG_AUSENTE` ou
 `CONFIG_INCOMPLETA`, faça as perguntas abaixo **antes de prospectar**. Pergunte, não suponha:
 nenhum destes valores tem padrão. Use o formato de múltipla escolha quando houver, em blocos
 de no máximo 4 perguntas.
@@ -127,6 +134,8 @@ python scripts/agendor.py duplicados lote.json                  # Agendor
 python scripts/exportar_csv.py lote.json --base export_crm.csv  # outro CRM
 ```
 Empresa que já existe com outro responsável sai da lista, e o usuário fica sabendo onde ela está.
+Quando o motivo for só "nome parecido", mostre os dois nomes ao usuário: se ele confirmar que são
+empresas diferentes, libere com `--liberar "Nome A;Nome B"` no `criar`. CNPJ igual nunca é liberado.
 
 ### 6. Apresentar para aprovação
 Tabela com: empresa, CNPJ, porte e regime, sócios e **por que funcionaria para o que o usuário
@@ -148,6 +157,10 @@ python scripts/agendor.py criar lote.json --funil ID --etapa ID --confirmar  # o
 ```
 Se aparecer `FUNIL_INVALIDO` ou `ETAPA_INVALIDA`, o funil foi apagado ou renomeado na conta:
 pergunte de novo ao usuário e atualize o config.
+
+Se o `criar` parar no meio (`PAROU em ...`, código de saída 3), o registro `criados_AAAAMMDD.json`
+mostra o que já foi criado. Se a empresa foi criada e o negócio não, conte ao usuário e pergunte
+como seguir: rodar o lote de novo vai acusar essa empresa como duplicada.
 Na primeira vez numa conta, grave **uma** empresa e peça para o usuário conferir na tela (campos,
 etapa e automações da conta) antes de gravar o resto.
 

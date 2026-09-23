@@ -50,3 +50,12 @@ def titulo(cfg, empresa):
         cidade=(r.get("endereco") or {}).get("cidade", ""),
         socio=socios[0]["nome"].title() if socios else "",
     ).replace(" |  | ", " | ").strip(" |")
+
+
+if __name__ == "__main__":
+    # `python config.py`: diz se o onboarding já foi feito, sem precisar de token.
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+    cfg = carregar()
+    print(f"CONFIG_OK: {CAMINHO}")
+    print(json.dumps(cfg, ensure_ascii=False, indent=1))
